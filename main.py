@@ -51,7 +51,7 @@ def predict(data: ModelInput, username: str = Depends(get_current_username)):
     try:
         # Log API usage
         logging.info(f"User {username} accessed the /predict endpoint with data {data}")
-
+        
         #converting payment method to encoded categories
         if data.PaymentMethod == "Bank transfer":
             data.PaymentMethod = 0
@@ -60,29 +60,34 @@ def predict(data: ModelInput, username: str = Depends(get_current_username)):
         elif data.PaymentMethod == "Electronic check":
             data.PaymentMethod = 2
         elif data.PaymentMethod == "Mailed check":
-            data.PaymentMethod = 4
+            data.PaymentMethod = 3
         else:
             raise HTTPException(status_code=400, detail="Invalid PaymentMethod")
         
         # Convert the input into the format expected by the model
+   
         data = [[
-            int(data.SeniorCitizen),
-            int(data.Partner),
-            data.Tenure,
-            int(data.OnlineSecurity),
-            int(data.OnlineBackup),
-            int(data.TechSupport),
-            int(data.StreamingTV),
-            data.PaymentMethod,  # Assume the model expects encoded categories for PaymentMethod
-            data.MonthlyCharges,
-            data.TotalCharges
-        ]]
+                int(data.SeniorCitizen),
+                int(data.Partner),
+                data.Tenure,
+                int(data.OnlineSecurity),
+                int(data.OnlineBackup),
+                int(data.TechSupport),
+                int(data.StreamingTV),
+                data.PaymentMethod,  # Assume the model expects encoded categories for PaymentMethod
+                data.MonthlyCharges,
+                data.TotalCharges
+            ]]
         
         # Make prediction
         prediction = model.predict(data)
         
         # Return prediction result
         return {"prediction": int(prediction[0])}
+    
+    except HTTPException as http_exc:
+        # Re-raise HTTPExceptions so they are returned as-is
+        raise http_exc
     
     except Exception as e:
         logging.error(f"Error during prediction: {str(e)}")
