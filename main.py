@@ -4,7 +4,6 @@ import joblib
 import logging
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-import cProfile
 
 import secrets
 import passwords as sec
@@ -69,6 +68,7 @@ If the payment method provided in the input data is invalid, the endpoint raises
 '''
 @app.post("/predict")
 def predict(data: ModelInput, username: str = Depends(get_current_username)):
+    
     try:
         # Log API usage
         logging.info(f"User {username} accessed the /predict endpoint with data {data}")
