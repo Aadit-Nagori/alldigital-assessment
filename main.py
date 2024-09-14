@@ -4,6 +4,10 @@ import joblib
 import logging
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from functools import wraps 
+import cProfile
+import pstats
+import io
 
 import secrets
 import passwords as sec
@@ -24,13 +28,43 @@ model = joblib.load("logistic_regression_model.pkl")
 logging.basicConfig(filename="api_usage.log",level=logging.INFO,format='%(asctime)s:%(levelname)s:%(message)s')
 
 
+def profile_predict(fn):
+    """ Wrapper for API endpoints to profile the function """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+      
+        pr = cProfile.Profile()
+        pr.enable()
+
+        # Call the original function
+        result = fn(*args, **kwargs)
+
+        pr.disable()
+
+        s = io.StringIO()
+        ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+        ps.print_stats()
+
+        profiling_output = s.getvalue()
+        
+        # Save the profiling output to a file
+        with open("profiling_output.log", "w") as f:
+            f.write(profiling_output)
+
+        return result
+    return wrapper
+
+
+
 #Defining the input schema
-'''
-This class defines the input schema for the API endpoint.
-The input schema is defined using Pydantic's BaseModel class.
-The input schema includes the optimal fields found during the feature engineering process.
-'''
+
 class ModelInput(BaseModel):
+    '''
+    This class defines the input schema for the API endpoint.
+    The input schema is defined using Pydantic's BaseModel class.
+    The input schema includes the optimal fields found during the feature engineering process.
+    '''
+    
     SeniorCitizen: bool
     Partner: bool
     Tenure: int
@@ -45,12 +79,13 @@ class ModelInput(BaseModel):
         
         
 #Authentication function
-'''
-This function checks the username and password provided by the user against the correct username and password.
-If the username and password are correct, the function returns the username.
-If the username and password are incorrect, the function raises an HTTPException with status code 401 (Unauthorized).
-'''
+
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
+    '''
+    This function checks the username and password provided by the user against the correct username and password.
+    If the username and password are correct, the function returns the username.
+    If the username and password are incorrect, the function raises an HTTPException with status code 401 (Unauthorized).
+    '''
     correct_username = secrets.compare_digest(credentials.username, sec.username)
     correct_password = secrets.compare_digest(credentials.password, sec.password)
     if not (correct_username and correct_password):
@@ -58,17 +93,18 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 #Defining the API endpoint
-'''
-This endpoint is used to make predictions using the trained model.
-The endpoint takes the input data as a JSON object and the username and password for authentication.
-The endpoint first checks the authentication credentials using the get_current_username function.
-If the authentication is successful, the endpoint processes the input data, makes a prediction using the model, and returns the prediction.
-If there is an error during the prediction process, the endpoint logs the error and returns an HTTP 500 error.
-If the payment method provided in the input data is invalid, the endpoint raises an HTTP 400 error.
-'''
 @app.post("/predict")
+@profile_predict  # Apply the profiling decorator
 def predict(data: ModelInput, username: str = Depends(get_current_username)):
-    
+    '''
+    This endpoint is used to make predictions using the trained model.
+    The endpoint takes the input data as a JSON object and the username and password for authentication.
+    The endpoint first checks the authentication credentials using the get_current_username function.
+    If the authentication is successful, the endpoint processes the input data, makes a prediction using the model, and returns the prediction.
+    If there is an error during the prediction process, the endpoint logs the error and returns an HTTP 500 error.
+    If the payment method provided in the input data is invalid, the endpoint raises an HTTP 400 error.
+    '''
+
     try:
         # Log API usage
         logging.info(f"User {username} accessed the /predict endpoint with data {data}")
