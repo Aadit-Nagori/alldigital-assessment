@@ -1,1 +1,4 @@
 passwords.py
+.ruff_cache
+.pytest_cache
+__pycache__
